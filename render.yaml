@@ -1,0 +1,30 @@
+# Render Blueprint for deploying Betme.
+# Docs: https://render.com/docs/blueprint-spec
+#
+# This deploys the Next.js app as a single web service. The SQLite database
+# lives on a persistent disk so data survives restarts/deploys. A persistent
+# disk requires a paid instance type (the free tier has an ephemeral filesystem
+# and cannot retain the database).
+#
+# After creating the service, set the AdSense client id (NEXT_PUBLIC_ADSENSE_CLIENT)
+# in the Render dashboard to enable real ads. See README.md → Deployment & ads.
+services:
+  - type: web
+    name: betme
+    runtime: node
+    plan: starter
+    branch: main
+    buildCommand: npm install && npm run build
+    startCommand: npm run start:prod
+    healthCheckPath: /
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        value: file:/var/data/prod.db
+      - key: NEXT_PUBLIC_ADSENSE_CLIENT
+        sync: false
+    disk:
+      name: betme-data
+      mountPath: /var/data
+      sizeGB: 1

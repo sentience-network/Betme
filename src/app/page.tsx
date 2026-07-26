@@ -178,7 +178,7 @@ export default function HomePage() {
         <div className="card sticky top-20 p-4">
           <h2 className="mb-3 text-lg font-bold">Post a prediction</h2>
           {user ? (
-            <form onSubmit={createPrediction} className="space-y-3">
+            <form onSubmit={createPrediction} className="space-y-3" noValidate>
               <input
                 className="input"
                 placeholder="Will BTC close above $150k in 2026?"

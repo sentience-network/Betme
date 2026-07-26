@@ -41,12 +41,18 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "title is required" }, { status: 400 });
   }
 
+  let closesAtDate: Date | null = null;
+  if (closesAt) {
+    const parsed = new Date(closesAt);
+    if (!Number.isNaN(parsed.getTime())) closesAtDate = parsed;
+  }
+
   const prediction = await prisma.prediction.create({
     data: {
       title: title.trim().slice(0, 200),
       description: (description || "").toString().slice(0, 1000),
       category: (category || "General").toString().slice(0, 40),
-      closesAt: closesAt ? new Date(closesAt) : null,
+      closesAt: closesAtDate,
       creatorId: userId,
     },
   });

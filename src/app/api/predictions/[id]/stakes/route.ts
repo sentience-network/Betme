@@ -29,6 +29,12 @@ export async function POST(
   if (prediction.status !== "OPEN") {
     return NextResponse.json({ error: "Prediction is closed" }, { status: 400 });
   }
+  if (prediction.closesAt && prediction.closesAt.getTime() <= Date.now()) {
+    return NextResponse.json(
+      { error: "This market has passed its close time" },
+      { status: 400 }
+    );
+  }
 
   const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user || user.balance < amt) {

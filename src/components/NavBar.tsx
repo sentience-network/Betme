@@ -3,10 +3,13 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useUser } from "@/components/UserContext";
+import { useToast } from "@/components/Toast";
 import { Avatar } from "@/components/Avatar";
+import { NotificationBell } from "@/components/NotificationBell";
 
 export function NavBar() {
   const { user, loading, login, logout } = useUser();
+  const { toast } = useToast();
   const [username, setUsername] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -16,10 +19,13 @@ export function NavBar() {
     setBusy(true);
     setError("");
     try {
-      await login(username);
+      const u = await login(username);
       setUsername("");
+      toast(`Welcome, @${u.username}!`, "success");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Login failed");
+      const msg = err instanceof Error ? err.message : "Login failed";
+      setError(msg);
+      toast(msg, "error");
     } finally {
       setBusy(false);
     }
@@ -32,21 +38,32 @@ export function NavBar() {
           <span className="text-brand-400">📈 Betme</span>
         </Link>
 
-        <nav className="hidden gap-1 sm:flex">
+        <nav className="hidden gap-1 md:flex">
           <Link href="/" className="btn-ghost">
             Markets
+          </Link>
+          <Link href="/leaderboard" className="btn-ghost">
+            Leaderboard
           </Link>
           <Link href="/people" className="btn-ghost">
             People
           </Link>
-          <Link href="/messages" className="btn-ghost">
-            Messages
-          </Link>
+          {user && (
+            <>
+              <Link href="/bets" className="btn-ghost">
+                My bets
+              </Link>
+              <Link href="/messages" className="btn-ghost">
+                Messages
+              </Link>
+            </>
+          )}
         </nav>
 
         <div className="flex items-center gap-3">
           {loading ? null : user ? (
             <>
+              <NotificationBell />
               <Link
                 href={`/u/${user.username}`}
                 className="flex items-center gap-2 rounded-lg px-2 py-1 hover:bg-slate-800"

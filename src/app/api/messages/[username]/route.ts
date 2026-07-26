@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUserId } from "@/lib/session";
 import { awardBadge } from "@/lib/badges.server";
+import { notify } from "@/lib/notifications.server";
 
 export async function GET(
   _request: Request,
@@ -70,6 +71,14 @@ export async function POST(
   });
 
   await awardBadge(userId, "conversationalist");
+
+  await notify({
+    userId: partner.id,
+    actorId: userId,
+    type: "message",
+    body: `@${message.sender.username} sent you a message`,
+    link: `/messages/${message.sender.username}`,
+  });
 
   return NextResponse.json({ message }, { status: 201 });
 }

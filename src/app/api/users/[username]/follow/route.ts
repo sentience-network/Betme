@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUserId } from "@/lib/session";
 import { evaluatePopularBadge } from "@/lib/badges.server";
+import { notify } from "@/lib/notifications.server";
 
 export async function POST(
   _request: Request,
@@ -34,5 +35,15 @@ export async function POST(
     data: { followerId: viewerId, followingId: target.id },
   });
   await evaluatePopularBadge(target.id);
+
+  const actor = await prisma.user.findUnique({ where: { id: viewerId } });
+  await notify({
+    userId: target.id,
+    actorId: viewerId,
+    type: "follow",
+    body: `@${actor?.username ?? "someone"} started following you`,
+    link: `/u/${actor?.username ?? ""}`,
+  });
+
   return NextResponse.json({ following: true });
 }

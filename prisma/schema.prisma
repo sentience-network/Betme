@@ -12,10 +12,11 @@ model User {
   id           String   @id @default(cuid())
   username     String   @unique
   displayName  String
-  bio          String   @default("")
-  avatarColor  String   @default("#6366f1")
-  balance      Int      @default(1000) // play-money credits used to stake predictions
-  createdAt    DateTime @default(now())
+  bio             String   @default("")
+  avatarColor     String   @default("#6366f1")
+  balance         Int      @default(1000) // play-money credits used to stake predictions
+  adEarningsCents Int      @default(0) // real ad-revenue share accrued to this user, in cents
+  createdAt       DateTime @default(now())
 
   predictions      Prediction[]  @relation("PredictionCreator")
   stakes           Stake[]
@@ -25,6 +26,8 @@ model User {
   following        Follow[]        @relation("Follower")
   followers        Follow[]        @relation("Following")
   badges           UserBadge[]
+  notifications    Notification[]
+  adEarnings       AdEarning[]
 }
 
 model Prediction {
@@ -99,6 +102,33 @@ model Follow {
 
   @@unique([followerId, followingId])
   @@index([followingId])
+}
+
+model AdEarning {
+  id           String   @id @default(cuid())
+  amountCents  Int
+  reason       String   @default("ad_impression")
+  createdAt    DateTime @default(now())
+
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  predictionId String?
+
+  @@index([userId])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  type      String // follow | chat | resolve | message
+  body      String
+  link      String   @default("/")
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  userId String // recipient
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model UserBadge {

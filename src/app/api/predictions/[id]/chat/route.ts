@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUserId } from "@/lib/session";
+import { notify } from "@/lib/notifications.server";
 
 export async function GET(
   _request: Request,
@@ -38,6 +39,17 @@ export async function POST(
     },
     include: { author: true },
   });
+
+  const prediction = await prisma.prediction.findUnique({ where: { id } });
+  if (prediction) {
+    await notify({
+      userId: prediction.creatorId,
+      actorId: userId,
+      type: "chat",
+      body: `@${message.author.username} commented on “${prediction.title}”`,
+      link: `/predictions/${id}`,
+    });
+  }
 
   return NextResponse.json({ message }, { status: 201 });
 }

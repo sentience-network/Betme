@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUserId } from "@/lib/session";
 import { awardBadge } from "@/lib/badges.server";
+import { notifyMany } from "@/lib/notifications.server";
 import { computePayouts, type Side } from "@/lib/payout";
 
 export async function POST(
@@ -70,6 +71,17 @@ export async function POST(
   for (const winnerId of winners) {
     await awardBadge(winnerId, "sharpshooter");
   }
+
+  // Notify everyone who staked that the market resolved.
+  await notifyMany(
+    prediction.stakes.map((s) => s.userId),
+    {
+      actorId: userId,
+      type: "resolve",
+      body: `“${prediction.title}” resolved: ${outcome}`,
+      link: `/predictions/${id}`,
+    }
+  );
 
   return NextResponse.json({ ok: true, outcome, payouts });
 }

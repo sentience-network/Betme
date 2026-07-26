@@ -24,7 +24,17 @@ following, and earned badges.
 - `npm run lint`, `npm test` (Vitest), `npm run build`.
 - **Do not upgrade the linter toolchain.** ESLint is pinned to v8 with `eslint-config-next@15` to match Next 15. ESLint 9 flat config + `eslint-config-next@16` breaks `next lint` with a "Converting circular structure to JSON" error. Keep these versions aligned with the installed Next version.
 
+### Ads & revenue sharing
+- Ad slots (`src/components/AdSlot.tsx`) render Google AdSense units only when `NEXT_PUBLIC_ADSENSE_CLIENT` is set (see `.env.example`); otherwise a house placeholder shows. Real ad revenue additionally requires an approved AdSense account (external, Google-side).
+- Independently of real ads, viewing an `AdSlot` with a `predictionId` calls `POST /api/ads/impression`, which accrues a small revenue share (`src/lib/ads.server.ts`) to the market's creator and participants — weighted toward the winning side on resolved markets. Totals are stored on `User.adEarningsCents` and shown on profiles/leaderboard.
+
+### Deployment (Render)
+- `render.yaml` is a Blueprint: single Node web service + a persistent disk mounted at `/var/data` holding the SQLite DB (`DATABASE_URL=file:/var/data/prod.db`). Persistent disks require a paid Render plan.
+- Prod start is `npm run start:prod` (`prisma db push --skip-generate` then `next start`); the client is generated at build time via the `postinstall` hook.
+- To scale beyond one instance, migrate the Prisma datasource from SQLite to Postgres.
+
 ### Gotchas
+- **Do not run `next build` while `next dev` is running** — both write to `.next` and the build fails with a misleading `PageNotFoundError: Cannot find module for page`. Stop the dev server (or `rm -rf .next`) before building.
 - **Prisma is pinned to v6.** Prisma 7 removed `url` from the datasource block and requires a `prisma.config.ts` + driver adapters; do not bump to 7 without that migration.
 - Video-message uploads are written to `public/uploads/` (git-ignored). The seeded video message references the committed clip `public/samples/welcome.mp4`. Browser video *recording* needs camera access (unavailable in headless test browsers) — use the "Upload a video file" fallback or the seeded clip to exercise playback.
 - Global CSS import types come from `src/types/global.d.ts` (`declare module "*.css"`), because Next's bundled types only declare `*.module.css`.

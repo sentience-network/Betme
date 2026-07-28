@@ -31,25 +31,25 @@ export async function spendCredits(
   reason: string,
   meta?: Record<string, unknown>
 ) {
-  const user = await prisma.user.findUnique({ where: { id: userId } });
-  if (!user || user.credits < amount) {
-    throw new Error("Not enough Betme credits");
-  }
+  if (amount <= 0) throw new Error("Invalid spend amount");
 
-  await prisma.$transaction([
-    prisma.user.update({
-      where: { id: userId },
+  await prisma.$transaction(async (tx) => {
+    const updated = await tx.user.updateMany({
+      where: { id: userId, credits: { gte: amount } },
       data: { credits: { decrement: amount } },
-    }),
-    prisma.creditLedger.create({
+    });
+    if (updated.count === 0) {
+      throw new Error("Not enough Betme credits");
+    }
+    await tx.creditLedger.create({
       data: {
         userId,
         amount: -amount,
         reason,
         metaJson: meta ? JSON.stringify(meta) : null,
       },
-    }),
-  ]);
+    });
+  });
 }
 
 export async function claimDailyBonus(userId: string) {

@@ -55,6 +55,15 @@ export default function HowItWorksPage() {
               </li>
             ))}
           </ol>
+          <h2 className="mt-10 font-display text-3xl font-bold text-ink">Social casino</h2>
+          <p className="mt-3 text-sm leading-relaxed text-ink/70">
+            Visit the{" "}
+            <Link href="/casino" className="font-semibold text-tide hover:underline">
+              casino floor
+            </Link>{" "}
+            for slots and blackjack. Same credit policy — stake what you earned, wins stay as
+            entertainment credits, nothing cashes out.
+          </p>
         </div>
       </section>
 

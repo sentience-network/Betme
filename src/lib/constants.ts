@@ -20,6 +20,30 @@ export const CREDIT_REWARDS = {
 
 export const DEFAULT_ENTRY_FEE = 10;
 
+/** Social casino — entertainment credits only (no cash). */
+export const CASINO = {
+  stakes: [5, 10, 25, 50] as const,
+  defaultStake: 10,
+  minStake: 5,
+  maxStake: 50,
+  slots: {
+    symbols: ["cherry", "lemon", "bell", "bar", "seven", "diamond"] as const,
+    /** Multipliers for matching 3; unmatched = 0. Soft house edge. */
+    paytable: {
+      cherry: 2,
+      lemon: 3,
+      bell: 5,
+      bar: 8,
+      seven: 15,
+      diamond: 25,
+    } as const,
+  },
+  blackjack: {
+    blackjackMultiplier: 2.5,
+    winMultiplier: 2,
+  },
+} as const;
+
 export const CATEGORIES = [
   "Sports",
   "Entertainment",
@@ -93,5 +117,19 @@ export const BADGE_CATALOG = [
     description: "Started or joined a Betme video room",
     icon: "◁",
     tier: "GOLD",
+  },
+  {
+    key: "floor_walker",
+    name: "Floor Walker",
+    description: "Played your first social casino game",
+    icon: "♠",
+    tier: "BRONZE",
+  },
+  {
+    key: "hot_streak",
+    name: "Hot Streak",
+    description: "Won 3 casino sessions in a row",
+    icon: "♦",
+    tier: "SILVER",
   },
 ] as const;

@@ -16,6 +16,9 @@ export function SiteHeader({ user }: { user: SessionUser | null }) {
           <Link className="rounded-md px-2 py-1.5 transition hover:bg-mist hover:text-ink" href="/markets">
             Markets
           </Link>
+          <Link className="rounded-md px-2 py-1.5 transition hover:bg-mist hover:text-ink" href="/casino">
+            Casino
+          </Link>
           <Link
             className="hidden rounded-md px-2 py-1.5 transition hover:bg-mist hover:text-ink sm:inline"
             href="/social"

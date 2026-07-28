@@ -7,8 +7,9 @@ export function SiteFooter() {
         <div>
           <p className="font-display text-3xl font-extrabold tracking-tight text-lime">BETME</p>
           <p className="mt-3 max-w-sm text-sm leading-relaxed text-foam/70">
-            Social prediction markets with badges, follows, chat, and video. Betme credits are
-            earned through signup, referrals, and usage — never purchased, never cashed out.
+            Social prediction markets plus a social casino floor — slots, blackjack, badges,
+            follows, chat, and video. Betme credits are earned through signup, referrals, and
+            usage — never purchased, never cashed out.
           </p>
         </div>
         <div>
@@ -17,6 +18,11 @@ export function SiteFooter() {
             <li>
               <Link className="hover:text-lime" href="/markets">
                 Markets
+              </Link>
+            </li>
+            <li>
+              <Link className="hover:text-lime" href="/casino">
+                Casino
               </Link>
             </li>
             <li>

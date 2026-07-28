@@ -1,11 +1,16 @@
 import { randomInt } from "crypto";
 import type { SlotCatalogItem } from "./catalog";
 import { getLayoutForLines, type LineMode } from "./lines";
-import type { SlotSymbol } from "./symbols";
-import { SLOT_SYMBOL_LABEL } from "./symbols";
+import {
+  ALL_SLOT_SYMBOLS,
+  PAY_SYMBOLS,
+  getThemePack,
+  symbolLabel,
+  type SlotSymbol,
+} from "./symbols";
 
 export type { SlotSymbol } from "./symbols";
-export { SLOT_SYMBOL_LABEL } from "./symbols";
+export { symbolLabel as SLOT_SYMBOL_LABEL_FN } from "./symbols";
 
 export type LineWin = {
   lineIndex: number;
@@ -26,6 +31,7 @@ export type BonusTrigger = {
 export type SlotSpinResult = {
   gameId: string;
   gameName: string;
+  theme: string;
   lineMode: LineMode;
   mode: "lines" | "ways";
   cols: number;
@@ -51,49 +57,49 @@ export type SpinOptions = {
 };
 
 const PAY: Record<SlotSymbol, Record<number, number>> = {
-  cherry: { 3: 0.4, 4: 1.2, 5: 4 },
-  lemon: { 3: 0.5, 4: 1.5, 5: 5 },
-  bell: { 3: 0.8, 4: 2.5, 5: 8 },
-  bar: { 3: 1.2, 4: 4, 5: 12 },
-  seven: { 3: 2, 4: 8, 5: 25 },
-  diamond: { 3: 3, 4: 12, 5: 40 },
+  low1: { 3: 0.4, 4: 1.2, 5: 4 },
+  low2: { 3: 0.5, 4: 1.5, 5: 5 },
+  low3: { 3: 0.8, 4: 2.5, 5: 8 },
+  mid1: { 3: 1.2, 4: 4, 5: 12 },
+  mid2: { 3: 2, 4: 8, 5: 25 },
+  high: { 3: 3, 4: 12, 5: 40 },
   wild: { 3: 2, 4: 8, 5: 30 },
   scatter: { 3: 1, 4: 3, 5: 10 },
 };
 
 const THEME_WEIGHTS: Record<string, Partial<Record<SlotSymbol, number>>> = {
-  Mythology: { cherry: 18, lemon: 16, bell: 16, bar: 14, seven: 12, diamond: 10, wild: 8, scatter: 6 },
-  Fishing: { cherry: 22, lemon: 20, bell: 16, bar: 12, seven: 10, diamond: 8, wild: 7, scatter: 5 },
-  Fortune: { cherry: 16, lemon: 16, bell: 15, bar: 14, seven: 12, diamond: 12, wild: 9, scatter: 6 },
-  Candy: { cherry: 20, lemon: 18, bell: 16, bar: 14, seven: 12, diamond: 8, wild: 7, scatter: 5 },
-  Classic: { cherry: 24, lemon: 22, bell: 18, bar: 14, seven: 10, diamond: 6, wild: 4, scatter: 2 },
-  default: { cherry: 20, lemon: 18, bell: 16, bar: 14, seven: 12, diamond: 10, wild: 6, scatter: 4 },
+  Mythology: { low1: 18, low2: 16, low3: 16, mid1: 14, mid2: 12, high: 10, wild: 8, scatter: 8 },
+  Fishing: { low1: 20, low2: 18, low3: 16, mid1: 12, mid2: 10, high: 8, wild: 7, scatter: 8 },
+  Fortune: { low1: 16, low2: 16, low3: 15, mid1: 14, mid2: 12, high: 12, wild: 9, scatter: 8 },
+  Candy: { low1: 20, low2: 18, low3: 16, mid1: 14, mid2: 12, high: 8, wild: 7, scatter: 7 },
+  Classic: { low1: 22, low2: 20, low3: 18, mid1: 14, mid2: 10, high: 6, wild: 4, scatter: 6 },
+  default: { low1: 18, low2: 17, low3: 16, mid1: 14, mid2: 12, high: 10, wild: 6, scatter: 7 },
 };
 
 function pickSymbol(
   theme: string,
   volatility: SlotCatalogItem["volatility"],
-  boostWild = false
+  opts: { boostWild?: boolean; boostScatter?: boolean } = {}
 ): SlotSymbol {
   const base = THEME_WEIGHTS[theme] ?? THEME_WEIGHTS.default!;
   const weights: Record<SlotSymbol, number> = {
-    cherry: base.cherry ?? 20,
-    lemon: base.lemon ?? 18,
-    bell: base.bell ?? 16,
-    bar: base.bar ?? 14,
-    seven: base.seven ?? 12,
-    diamond: base.diamond ?? 10,
-    wild: (base.wild ?? 6) * (volatility === "high" ? 1.2 : 1) * (boostWild ? 2.2 : 1),
-    scatter: (base.scatter ?? 4) * (boostWild ? 0.5 : 1),
+    low1: base.low1 ?? 18,
+    low2: base.low2 ?? 17,
+    low3: base.low3 ?? 16,
+    mid1: base.mid1 ?? 14,
+    mid2: base.mid2 ?? 12,
+    high: base.high ?? 10,
+    wild: (base.wild ?? 6) * (volatility === "high" ? 1.2 : 1) * (opts.boostWild ? 2.4 : 1),
+    scatter: (base.scatter ?? 7) * (opts.boostScatter ? 1.6 : opts.boostWild ? 0.7 : 1),
   };
   const entries = Object.entries(weights) as [SlotSymbol, number][];
   const total = entries.reduce((a, [, w]) => a + w, 0);
-  let roll = randomInt(Math.floor(total));
+  let roll = randomInt(Math.max(1, Math.floor(total)));
   for (const [sym, w] of entries) {
     roll -= w;
     if (roll < 0) return sym;
   }
-  return "cherry";
+  return "low1";
 }
 
 export function winTierFor(stake: number, payout: number): WinTier {
@@ -162,11 +168,8 @@ function evaluateWays(grid: SlotSymbol[][], stake: number) {
   const candidates = new Set<SlotSymbol>();
   for (const s of grid[0]!) {
     if (s === "scatter") continue;
-    if (s === "wild") {
-      (["cherry", "lemon", "bell", "bar", "seven", "diamond"] as SlotSymbol[]).forEach((x) =>
-        candidates.add(x)
-      );
-    } else candidates.add(s);
+    if (s === "wild") PAY_SYMBOLS.forEach((x) => candidates.add(x));
+    else candidates.add(s);
   }
 
   const wins: LineWin[] = [];
@@ -221,6 +224,7 @@ export function spinSlots(
   const freeSpinMult = options.freeSpinMult ?? (isFreeSpin ? 2 : 1);
   const sticky = options.stickyWilds ?? [];
   const layout = getLayoutForLines(game.lines);
+  const pack = getThemePack(game.theme);
 
   const grid: SlotSymbol[][] = [];
   for (let c = 0; c < layout.cols; c++) {
@@ -228,13 +232,17 @@ export function spinSlots(
     for (let r = 0; r < layout.rows; r++) {
       const stickyHit = sticky.some((w) => w.col === c && w.row === r);
       col.push(
-        stickyHit ? "wild" : pickSymbol(game.theme, game.volatility, isFreeSpin)
+        stickyHit
+          ? "wild"
+          : pickSymbol(game.theme, game.volatility, {
+              boostWild: isFreeSpin,
+              boostScatter: !isFreeSpin,
+            })
       );
     }
     grid.push(col);
   }
 
-  // During free spins, newly landed wilds become sticky
   const nextSticky = [...sticky];
   if (isFreeSpin) {
     for (let c = 0; c < layout.cols; c++) {
@@ -295,24 +303,23 @@ export function spinSlots(
         awarded: freeSpinsAwarded(scatters, game.volatility),
         scatters,
       };
-    } else {
-      // Retrigger
+    } else if (scatters >= 3) {
       bonus = {
         type: "freespins",
-        awarded: scatters >= 3 ? 5 : 0,
+        awarded: 5,
         scatters,
       };
-      if (bonus.awarded === 0) bonus = undefined;
     }
   }
 
   payout = Math.floor(payout * freeSpinMult);
-  const labels = grid.map((col) => col.map((s) => SLOT_SYMBOL_LABEL[s]));
+  const labels = grid.map((col) => col.map((s) => symbolLabel(game.theme, s)));
   const totalMultiplier = stake > 0 ? Number((payout / stake).toFixed(2)) : 0;
 
   return {
     gameId: game.id,
     gameName: game.name,
+    theme: pack.id,
     lineMode: game.lines,
     mode: layout.mode,
     cols: layout.cols,
@@ -331,3 +338,6 @@ export function spinSlots(
     stickyWilds: nextSticky,
   };
 }
+
+/** Dev/test helper */
+export { ALL_SLOT_SYMBOLS };

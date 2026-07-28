@@ -27,15 +27,14 @@ export const CASINO = {
   minStake: 5,
   maxStake: 50,
   slots: {
-    symbols: ["cherry", "lemon", "bell", "bar", "seven", "diamond"] as const,
-    /** Multipliers for matching 3; unmatched = 0. Soft house edge. */
+    symbols: ["low1", "low2", "low3", "mid1", "mid2", "high"] as const,
     paytable: {
-      cherry: 2,
-      lemon: 3,
-      bell: 5,
-      bar: 8,
-      seven: 15,
-      diamond: 25,
+      low1: 2,
+      low2: 3,
+      low3: 5,
+      mid1: 8,
+      mid2: 15,
+      high: 25,
     } as const,
   },
   blackjack: {

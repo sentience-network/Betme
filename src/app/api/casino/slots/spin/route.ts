@@ -71,11 +71,13 @@ export async function POST(req: Request) {
       const credits = await getUserCredits(userId);
       return NextResponse.json({
         sessionId: bonusId,
+        bonusId,
         stake: state.stake,
         ...result,
         bonusRemaining: state.remaining,
         bonusTotalWin: state.totalWin,
         bonusActive: !finished,
+        freeSpinMult: state.freeSpinMult,
         credits,
       });
     }

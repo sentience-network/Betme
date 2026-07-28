@@ -7,7 +7,7 @@ import type { SlotCatalogItem } from "@/lib/casino/catalog";
 import { lineModeLabel } from "@/lib/casino/lines";
 import {
   ALL_SLOT_SYMBOLS,
-  SLOT_SYMBOL_TINT,
+  getThemePack,
   type SlotSymbol,
 } from "@/lib/casino/symbols";
 import { getSlotVisual } from "@/lib/casino/themes";
@@ -69,6 +69,7 @@ function ReelColumn({
   accent,
   anticipation,
   colIndex,
+  theme,
 }: {
   symbols: SlotSymbol[];
   spinning: boolean;
@@ -78,11 +79,11 @@ function ReelColumn({
   accent: string;
   anticipation: boolean;
   colIndex: number;
+  theme: string;
 }) {
   const [phase, setPhase] = useState<"idle" | "spin" | "land">("idle");
   const [show, setShow] = useState(symbols);
   const strip = useMemo(() => {
-    // Rebuild strip each spin so motion feels fresh
     void spinning;
     return buildStrip(18, colIndex + Math.floor(stopDelayMs / 100) + (spinning ? 1 : 0));
   }, [colIndex, stopDelayMs, spinning]);
@@ -102,7 +103,8 @@ function ReelColumn({
     return () => clearTimeout(stop);
   }, [spinning, symbols, stopDelayMs]);
 
-  const cellH = symbols.length >= 4 ? "min-h-[4.25rem] md:min-h-[5rem]" : "min-h-[5rem] md:min-h-[5.75rem]";
+  const cellH =
+    symbols.length >= 4 ? "min-h-[4.25rem] md:min-h-[5rem]" : "min-h-[5rem] md:min-h-[5.75rem]";
 
   if (phase === "spin") {
     return (
@@ -124,7 +126,7 @@ function ReelColumn({
               key={i}
               className={`flex ${cellH} items-center justify-center border-b border-white/5 bg-black/40`}
             >
-              <SlotSymbolArt symbol={sym} tint={SLOT_SYMBOL_TINT[sym]} size="md" />
+              <SlotSymbolArt symbol={sym} theme={theme} size="md" />
             </div>
           ))}
         </div>
@@ -152,10 +154,11 @@ function ReelColumn({
                 : hot
                   ? `linear-gradient(160deg, ${accent}88, #071a14)`
                   : "linear-gradient(160deg, rgba(255,255,255,0.08), rgba(0,0,0,0.45))",
-              boxShadow: hot || sticky ? `0 0 28px ${accent}99, inset 0 0 20px ${accent}33` : "inset 0 1px 0 #fff2",
+              boxShadow:
+                hot || sticky ? `0 0 28px ${accent}99, inset 0 0 20px ${accent}33` : "inset 0 1px 0 #fff2",
             }}
           >
-            <SlotSymbolArt symbol={sym} tint={SLOT_SYMBOL_TINT[sym]} size="lg" hot={hot} />
+            <SlotSymbolArt symbol={sym} theme={theme} size="lg" hot={hot} />
             {sticky && (
               <span className="absolute bottom-1 right-1 rounded bg-lime/90 px-1 text-[0.55rem] font-black text-ink">
                 LOCK
@@ -186,6 +189,7 @@ export function SlotsGame({
 }) {
   const router = useRouter();
   const visual = getSlotVisual(game.theme);
+  const pack = getThemePack(game.theme);
   const rows = game.lines === 100 || game.lines === 500 ? 4 : 3;
   const [stake, setStake] = useState<number>(CASINO.defaultStake);
   const [credits, setCredits] = useState(initialCredits);
@@ -193,7 +197,7 @@ export function SlotsGame({
   const [spinning, setSpinning] = useState(false);
   const [wins, setWins] = useState<LineWin[]>([]);
   const [message, setMessage] = useState(
-    `${game.name} · ${lineModeLabel(game.lines)} · 3★ scatters unlock Free Spins`
+    `${game.name} · ${lineModeLabel(game.lines)} · 3 ${pack.scatterName}s unlock Free Spins`
   );
   const [lastPayout, setLastPayout] = useState(0);
   const [tier, setTier] = useState<WinTier>("none");
@@ -209,6 +213,7 @@ export function SlotsGame({
   const [spinToken, setSpinToken] = useState(0);
   const lock = useRef(false);
   const autoRef = useRef(false);
+  const bonusIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     autoRef.current = autoplay;
@@ -228,7 +233,7 @@ export function SlotsGame({
     return map;
   }, [sticky]);
 
-  async function runSpin(opts?: { free?: boolean }) {
+  async function runSpin(opts?: { free?: boolean; bonusSessionId?: string }) {
     if (lock.current) return;
     lock.current = true;
     setSpinning(true);
@@ -236,15 +241,18 @@ export function SlotsGame({
     setWins([]);
     setShowTier(false);
     setTier("none");
-    setMessage(opts?.free ? `Free spin · ${freeMult}× multiplier` : "Reels spinning…");
+
+    const activeBonusId = opts?.bonusSessionId ?? bonusIdRef.current;
+    const isFree = !!(opts?.free && activeBonusId);
+    setMessage(isFree ? `Free spin · ${freeMult}× multiplier` : "Reels spinning…");
 
     try {
       const res = await fetch("/api/casino/slots/spin", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(
-          opts?.free && bonusId
-            ? { action: "freespin", bonusId, gameId: game.id }
+          isFree
+            ? { action: "freespin", bonusId: activeBonusId, gameId: game.id }
             : { action: "spin", stake, gameId: game.id }
         ),
       });
@@ -252,7 +260,6 @@ export function SlotsGame({
       if (!res.ok) throw new Error(data.error || "Spin failed");
 
       setGrid(data.grid);
-      // Staggered stop: 5 reels + anticipation on last
       await new Promise((r) => setTimeout(r, 3200));
 
       setCredits(data.credits);
@@ -267,24 +274,27 @@ export function SlotsGame({
         setTimeout(() => setShowTier(false), data.winTier === "epic" ? 3400 : 2000);
       }
 
-      if (data.bonusActive && data.bonusId) {
+      if (data.bonusId) {
+        bonusIdRef.current = data.bonusId;
         setBonusId(data.bonusId);
+      }
+
+      if (data.bonusActive) {
         setBonusLeft(data.bonusRemaining || 0);
         setBonusTotal(data.bonusTotalWin || 0);
         if (data.freeSpinMult) setFreeMult(data.freeSpinMult);
-        if (data.bonus?.awarded && !opts?.free) {
+        if (data.bonus?.awarded && !isFree) {
           setBonusIntro(`${data.bonus.awarded} FREE SPINS · ${data.freeSpinMult || 2}×`);
           setTimeout(() => setBonusIntro(null), 2400);
         }
-      } else if (opts?.free) {
-        setBonusLeft(data.bonusRemaining || 0);
+      } else if (isFree) {
+        setBonusLeft(0);
         setBonusTotal(data.bonusTotalWin || 0);
-        if (!data.bonusActive) {
-          setBonusId(null);
-          setSticky([]);
-          setMessage(`Bonus complete · +${data.bonusTotalWin || 0} Betme credits total`);
-          setAutoplay(false);
-        }
+        bonusIdRef.current = null;
+        setBonusId(null);
+        setSticky([]);
+        setMessage(`Bonus complete · +${data.bonusTotalWin || 0} Betme credits total`);
+        setAutoplay(false);
       }
 
       if (data.payout > 0) {
@@ -297,16 +307,20 @@ export function SlotsGame({
         setMessage("No paying lines — spin again.");
       }
 
-      if (data.bonus?.awarded && opts?.free) {
+      if (data.bonus?.awarded && isFree) {
         setMessage(`Retrigger! +${data.bonus.awarded} free spins`);
+        setBonusLeft(data.bonusRemaining || 0);
       }
 
       router.refresh();
 
-      const stillBonus = !!data.bonusActive && (data.bonusRemaining || 0) > 0;
+      const nextBonusId = data.bonusId ?? activeBonusId;
+      const stillBonus = !!data.bonusActive && (data.bonusRemaining || 0) > 0 && !!nextBonusId;
       lock.current = false;
       if (stillBonus) {
-        setTimeout(() => void runSpin({ free: true }), 900);
+        // First trigger: wait for intro; continuing spins: shorter gap
+        const delay = isFree ? 850 : 2600;
+        setTimeout(() => void runSpin({ free: true, bonusSessionId: nextBonusId! }), delay);
         return;
       }
       if (autoRef.current) {
@@ -343,7 +357,9 @@ export function SlotsGame({
           <p className="font-display text-lg font-bold">
             FREE SPINS · {bonusLeft} left · {freeMult}× · bank {bonusTotal} cr
           </p>
-          <p className="text-xs text-lime/70">Sticky wilds locked · feature multiplier active</p>
+          <p className="text-xs text-lime/70">
+            {pack.wildName}s stick · feature multiplier active
+          </p>
         </div>
       )}
 
@@ -361,7 +377,9 @@ export function SlotsGame({
         <div className="relative z-10 mb-3 flex items-center justify-between px-2 text-[0.7rem] font-semibold uppercase tracking-[0.16em] text-white/55">
           <span>{lineModeLabel(game.lines)}</span>
           <span className="text-white/40">{visual.label} floor</span>
-          <span>Wilds · Scatters · Free Spins</span>
+          <span>
+            {pack.wildName} · {pack.scatterName}
+          </span>
         </div>
 
         <div
@@ -381,6 +399,7 @@ export function SlotsGame({
                 accent={game.accent}
                 anticipation={spinning && c === 4}
                 colIndex={c}
+                theme={game.theme}
               />
             ))}
           </div>
@@ -420,7 +439,9 @@ export function SlotsGame({
             disabled={spinning || bonusLeft > 0}
             onClick={() => setStake(s)}
             className={`rounded-lg px-3 py-2 text-sm font-semibold transition ${
-              stake === s ? "bg-ink text-lime shadow-[0_0_16px_rgba(200,245,96,0.35)]" : "bg-mist text-ink hover:bg-mist/80"
+              stake === s
+                ? "bg-ink text-lime shadow-[0_0_16px_rgba(200,245,96,0.35)]"
+                : "bg-mist text-ink hover:bg-mist/80"
             }`}
           >
             {s} cr
@@ -439,6 +460,15 @@ export function SlotsGame({
         >
           {spinning ? "Spinning…" : `SPIN · ${stake} cr`}
         </button>
+        {bonusLeft > 0 && !spinning && (
+          <button
+            type="button"
+            onClick={() => void runSpin({ free: true, bonusSessionId: bonusId ?? undefined })}
+            className="rounded-xl border border-lime bg-ink px-5 py-3 text-sm font-bold text-lime"
+          >
+            Play free spin
+          </button>
+        )}
         <button
           type="button"
           disabled={spinning || bonusLeft > 0}
@@ -465,20 +495,22 @@ export function SlotsGame({
 
       {showPaytable && (
         <div className="rounded-2xl border border-[var(--line)] bg-white/70 p-4 text-sm text-ink/70">
-          <p className="font-semibold text-ink">Symbol pays</p>
+          <p className="font-semibold text-ink">{game.theme} symbols</p>
           <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-4">
-            {(Object.keys(SLOT_SYMBOL_TINT) as SlotSymbol[]).map((s) => (
+            {(Object.keys(pack.symbols) as SlotSymbol[]).map((s) => (
               <div key={s} className="flex items-center gap-2 rounded-xl bg-mist/60 px-2 py-2">
-                <SlotSymbolArt symbol={s} tint={SLOT_SYMBOL_TINT[s]} size="sm" />
-                <span className="text-xs capitalize">
-                  {s === "scatter" ? "3★ Free Spins" : `${s} · 3/4/5`}
+                <SlotSymbolArt symbol={s} theme={game.theme} size="sm" />
+                <span className="text-xs">
+                  {pack.symbols[s].name}
+                  {s === "scatter" ? " · 3 = Free Spins" : " · 3/4/5"}
                 </span>
               </div>
             ))}
           </div>
           <p className="mt-3 text-xs text-ink/50">
-            Free Spins: sticky wilds + {game.volatility === "high" ? "3×" : "2×"} win multiplier.
-            Retrigger with 3 scatters. Betme credits only.
+            Free Spins: sticky {pack.wildName.toLowerCase()}s +{" "}
+            {game.volatility === "high" ? "3×" : "2×"} win multiplier. Retrigger with 3{" "}
+            {pack.scatterName.toLowerCase()}s. Betme credits only.
           </p>
         </div>
       )}
@@ -487,13 +519,13 @@ export function SlotsGame({
         <ul className="max-h-36 space-y-1 overflow-auto rounded-xl border border-[var(--line)] bg-white/50 p-3 text-xs text-ink/70">
           {wins.slice(0, 14).map((w, i) => (
             <li key={i} className="flex items-center gap-2">
-              <SlotSymbolArt symbol={w.symbol} tint={SLOT_SYMBOL_TINT[w.symbol]} size="sm" />
+              <SlotSymbolArt symbol={w.symbol} theme={game.theme} size="sm" />
               <span>
                 {w.lineIndex === -2
-                  ? `Scatter ×${w.count}`
+                  ? `${pack.scatterName} ×${w.count}`
                   : w.lineIndex < 0
-                    ? `Ways · ${w.symbol} ×${w.count}`
-                    : `Line ${w.lineIndex + 1} · ${w.symbol} ×${w.count}`}{" "}
+                    ? `Ways · ${pack.symbols[w.symbol].name} ×${w.count}`
+                    : `Line ${w.lineIndex + 1} · ${pack.symbols[w.symbol].name} ×${w.count}`}{" "}
                 · +{w.payout} cr
               </span>
             </li>

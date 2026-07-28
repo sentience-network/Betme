@@ -16,7 +16,7 @@ services:
     region: oregon
     # Deploy this feature branch until merged to main
     branch: cursor/betme-social-prediction-cca4
-    buildCommand: npm ci --include=dev && npx prisma generate && npm run build
+    buildCommand: npm install && npx prisma generate && npm run build
     # migrate deploy is idempotent; kept in start for free-tier compatibility
     # (pre-deploy commands require a paid plan on some accounts)
     startCommand: npx prisma migrate deploy && npm run start

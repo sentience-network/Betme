@@ -22,10 +22,13 @@ type HandResponse = {
   error?: string;
 };
 
-function CardFace({ card }: { card: ApiCard }) {
+function CardFace({ card, delay = 0 }: { card: ApiCard; delay?: number }) {
   if (card.rank === "?") {
     return (
-      <div className="flex h-24 w-16 items-center justify-center rounded-xl border border-lime/30 bg-ink text-lime md:h-28 md:w-20">
+      <div
+        className="card-deal-in flex h-24 w-16 items-center justify-center rounded-xl border border-lime/30 bg-gradient-to-br from-ink to-ink-soft text-lime shadow-lg md:h-28 md:w-20"
+        style={{ animationDelay: `${delay}ms` }}
+      >
         <span className="font-display text-xl">?</span>
       </div>
     );
@@ -34,9 +37,10 @@ function CardFace({ card }: { card: ApiCard }) {
   const suit = { S: "♠", H: "♥", D: "♦", C: "♣" }[card.suit] || card.suit;
   return (
     <div
-      className={`flex h-24 w-16 flex-col justify-between rounded-xl border border-[var(--line)] bg-white p-2 shadow-sm md:h-28 md:w-20 ${
+      className={`card-deal-in flex h-24 w-16 flex-col justify-between rounded-xl border border-white/80 bg-gradient-to-br from-white to-foam p-2 shadow-md md:h-28 md:w-20 ${
         red ? "text-ember" : "text-ink"
       }`}
+      style={{ animationDelay: `${delay}ms` }}
     >
       <span className="font-display text-sm font-bold leading-none">{card.rank}</span>
       <span className="self-center text-2xl leading-none">{suit}</span>
@@ -95,29 +99,31 @@ export function BlackjackTable({ initialCredits }: { initialCredits: number }) {
         </div>
       </div>
 
-      <div className="rounded-3xl border border-[var(--line)] bg-gradient-to-b from-tide/15 to-mist/40 p-6 md:p-8">
-        <div className="space-y-6">
+      <div className="relative overflow-hidden rounded-3xl border-2 border-[#c9a227]/40 bg-gradient-to-b from-[#0d5c45] via-[#0a4a38] to-[#062e24] p-6 shadow-[inset_0_0_60px_rgba(0,0,0,0.35)] md:p-8">
+        <div className="pointer-events-none absolute inset-0 opacity-20">
+          <div className="slot-rays absolute inset-0" style={{ ["--slot-glow" as string]: "#c8f560" }} />
+        </div>
+        <div className="relative space-y-8">
           <div>
-            <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-ink/50">
+            <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-lime/70">
               Dealer {hand?.dealerValue != null ? `· ${hand.dealerValue}` : ""}
             </p>
             <div className="flex flex-wrap gap-2">
               {(hand?.dealer || [{ rank: "?", suit: "?" }, { rank: "?", suit: "?" }]).map((c, i) => (
-                <CardFace key={`d-${i}-${c.rank}-${c.suit}`} card={c} />
+                <CardFace key={`d-${i}-${c.rank}-${c.suit}`} card={c} delay={i * 80} />
               ))}
             </div>
           </div>
+          <div className="mx-auto h-px max-w-xs bg-gradient-to-r from-transparent via-[#c9a227]/50 to-transparent" />
           <div>
-            <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-ink/50">
+            <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-lime/70">
               You {hand?.playerValue != null ? `· ${hand.playerValue}` : ""}
             </p>
             <div className="flex flex-wrap gap-2">
               {(hand?.player || []).map((c, i) => (
-                <CardFace key={`p-${i}-${c.rank}-${c.suit}`} card={c} />
+                <CardFace key={`p-${i}-${c.rank}-${c.suit}`} card={c} delay={i * 90} />
               ))}
-              {!hand && (
-                <p className="text-sm text-ink/45">Deal a hand to start.</p>
-              )}
+              {!hand && <p className="text-sm text-lime/50">Deal a hand to start.</p>}
             </div>
           </div>
         </div>

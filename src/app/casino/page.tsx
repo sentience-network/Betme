@@ -10,6 +10,8 @@ import {
   LIVE_DEALER_CATALOG,
   TABLE_CATALOG,
 } from "@/lib/casino/catalog";
+import { getSlotVisual } from "@/lib/casino/themes";
+import { ThemeMotifArt } from "@/components/casino/SlotSymbolArt";
 
 export const dynamic = "force-dynamic";
 
@@ -54,20 +56,32 @@ export default async function CasinoPage() {
           </Link>
         </div>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-          {featured.map((s) => (
-            <Link
-              key={s.id}
-              href={`/casino/slots/${s.id}`}
-              className="overflow-hidden rounded-2xl border border-[var(--line)] transition hover:-translate-y-0.5 hover:shadow-md"
-            >
-              <div
-                className="flex h-24 items-end p-3"
-                style={{ background: `linear-gradient(145deg,#071a14,${s.accent})` }}
+          {featured.map((s) => {
+            const v = getSlotVisual(s.theme);
+            return (
+              <Link
+                key={s.id}
+                href={`/casino/slots/${s.id}`}
+                className="group overflow-hidden rounded-2xl border border-[var(--line)] transition hover:-translate-y-0.5 hover:shadow-md"
               >
-                <p className="font-display text-base font-bold leading-tight text-lime">{s.name}</p>
-              </div>
-            </Link>
-          ))}
+                <div
+                  className="lobby-card-art relative flex h-28 items-end overflow-hidden p-3"
+                  style={{
+                    background: `linear-gradient(145deg, ${v.sky}, ${v.mid} 55%, ${s.accent})`,
+                  }}
+                >
+                  <ThemeMotifArt
+                    motif={v.motif}
+                    color={v.glow}
+                    className="pointer-events-none absolute -right-1 top-0 h-20 w-28 opacity-60 transition group-hover:scale-110"
+                  />
+                  <p className="relative z-10 font-display text-base font-bold leading-tight text-white drop-shadow">
+                    {s.name}
+                  </p>
+                </div>
+              </Link>
+            );
+          })}
         </div>
       </section>
 

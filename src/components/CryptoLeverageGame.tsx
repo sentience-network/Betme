@@ -58,6 +58,31 @@ export function CryptoLeverageGame({ initialCredits }: { initialCredits: number 
         </div>
       </div>
 
+      <div className="relative overflow-hidden rounded-3xl border border-[var(--line)] bg-gradient-to-br from-[#050818] via-[#0a1a28] to-ink p-6">
+        <svg viewBox="0 0 320 100" className="h-28 w-full opacity-80" aria-hidden>
+          <defs>
+            <linearGradient id="cryptoFill" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={side === "long" ? "#1f7a63" : "#e4572e"} stopOpacity="0.45" />
+              <stop offset="100%" stopColor="transparent" />
+            </linearGradient>
+          </defs>
+          <path
+            d="M0 70 L40 60 L80 65 L120 40 L160 48 L200 28 L240 35 L280 18 L320 22 L320 100 L0 100 Z"
+            fill="url(#cryptoFill)"
+          />
+          <path
+            d="M0 70 L40 60 L80 65 L120 40 L160 48 L200 28 L240 35 L280 18 L320 22"
+            fill="none"
+            stroke={side === "long" ? "#c8f560" : "#e4572e"}
+            strokeWidth="2.5"
+            className={loading ? "slot-bg-pulse" : ""}
+          />
+        </svg>
+        <p className="mt-2 text-center text-xs uppercase tracking-widest text-white/40">
+          Simulated {pair} · {leverage}× {side}
+        </p>
+      </div>
+
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="text-sm text-ink/70">
           Pair

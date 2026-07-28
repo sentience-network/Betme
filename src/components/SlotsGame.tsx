@@ -7,10 +7,13 @@ import type { SlotCatalogItem } from "@/lib/casino/catalog";
 import { lineModeLabel } from "@/lib/casino/lines";
 import {
   ALL_SLOT_SYMBOLS,
-  SLOT_SYMBOL_LABEL,
   SLOT_SYMBOL_TINT,
   type SlotSymbol,
 } from "@/lib/casino/symbols";
+import { getSlotVisual } from "@/lib/casino/themes";
+import { SlotSymbolArt } from "@/components/casino/SlotSymbolArt";
+import { SlotThemeBackdrop } from "@/components/casino/SlotThemeBackdrop";
+import { WinFx } from "@/components/casino/WinFx";
 
 type LineWin = {
   lineIndex: number;
@@ -50,6 +53,13 @@ function emptyGrid(cols: number, rows: number): SlotSymbol[][] {
   );
 }
 
+function buildStrip(len: number, seed: number): SlotSymbol[] {
+  return Array.from({ length: len }, (_, i) => {
+    const idx = (seed * 17 + i * 3 + Math.floor(i * 1.7)) % ALL_SLOT_SYMBOLS.length;
+    return ALL_SLOT_SYMBOLS[idx]!;
+  });
+}
+
 function ReelColumn({
   symbols,
   spinning,
@@ -57,6 +67,8 @@ function ReelColumn({
   highlightRows,
   stickyRows,
   accent,
+  anticipation,
+  colIndex,
 }: {
   symbols: SlotSymbol[];
   spinning: boolean;
@@ -64,35 +76,63 @@ function ReelColumn({
   highlightRows: Set<number>;
   stickyRows: Set<number>;
   accent: string;
+  anticipation: boolean;
+  colIndex: number;
 }) {
-  const [blur, setBlur] = useState(false);
+  const [phase, setPhase] = useState<"idle" | "spin" | "land">("idle");
   const [show, setShow] = useState(symbols);
+  const strip = useMemo(() => {
+    // Rebuild strip each spin so motion feels fresh
+    void spinning;
+    return buildStrip(18, colIndex + Math.floor(stopDelayMs / 100) + (spinning ? 1 : 0));
+  }, [colIndex, stopDelayMs, spinning]);
 
   useEffect(() => {
     if (!spinning) {
-      setBlur(false);
       setShow(symbols);
-      return;
+      setPhase("land");
+      const t = setTimeout(() => setPhase("idle"), 420);
+      return () => clearTimeout(t);
     }
-    setBlur(true);
-    const iv = setInterval(() => {
-      setShow(
-        Array.from(
-          { length: symbols.length },
-          () => ALL_SLOT_SYMBOLS[Math.floor(Math.random() * ALL_SLOT_SYMBOLS.length)]!
-        )
-      );
-    }, 55);
+    setPhase("spin");
     const stop = setTimeout(() => {
-      clearInterval(iv);
       setShow(symbols);
-      setBlur(false);
+      setPhase("land");
     }, stopDelayMs);
-    return () => {
-      clearInterval(iv);
-      clearTimeout(stop);
-    };
+    return () => clearTimeout(stop);
   }, [spinning, symbols, stopDelayMs]);
+
+  const cellH = symbols.length >= 4 ? "min-h-[4.25rem] md:min-h-[5rem]" : "min-h-[5rem] md:min-h-[5.75rem]";
+
+  if (phase === "spin") {
+    return (
+      <div
+        className={`slot-reel-window relative flex-1 overflow-hidden rounded-xl border ${
+          anticipation ? "slot-reel-anticipate" : ""
+        }`}
+        style={{
+          borderColor: `${accent}66`,
+          minHeight: symbols.length >= 4 ? "17.5rem" : "16rem",
+        }}
+      >
+        <div
+          className={`slot-strip ${anticipation ? "slot-strip-slow" : "slot-strip-fast"}`}
+          style={{ animationDuration: anticipation ? "0.14s" : `${0.055 + colIndex * 0.008}s` }}
+        >
+          {[...strip, ...strip].map((sym, i) => (
+            <div
+              key={i}
+              className={`flex ${cellH} items-center justify-center border-b border-white/5 bg-black/40`}
+            >
+              <SlotSymbolArt symbol={sym} tint={SLOT_SYMBOL_TINT[sym]} size="md" />
+            </div>
+          ))}
+        </div>
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-8 bg-gradient-to-b from-black/50 to-transparent" />
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-black/50 to-transparent" />
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-1 flex-col gap-1.5">
@@ -101,27 +141,27 @@ function ReelColumn({
         const sticky = stickyRows.has(row);
         return (
           <div
-            key={`${row}-${spinning}-${sym}`}
-            className={`slot-cell relative flex aspect-square items-center justify-center rounded-xl border text-2xl font-black md:text-3xl ${
-              blur ? "slot-reel-blur" : hot ? "slot-win-pulse" : "slot-cell-settle"
-            }`}
+            key={`${row}-${sym}-${phase}`}
+            className={`relative flex ${cellH} items-center justify-center rounded-xl border ${
+              hot ? "slot-win-pulse" : phase === "land" ? "slot-cell-settle" : ""
+            } ${sticky ? "slot-sticky-glow" : ""}`}
             style={{
-              borderColor: sticky ? "#c8f560" : hot ? accent : "rgba(200,245,96,0.18)",
+              borderColor: sticky ? "#c8f560" : hot ? accent : "rgba(255,255,255,0.12)",
               background: sticky
                 ? "linear-gradient(160deg,#1f7a63,#071a14)"
                 : hot
-                  ? `${accent}55`
-                  : "rgba(0,0,0,0.35)",
-              color: SLOT_SYMBOL_TINT[sym],
-              boxShadow: hot || sticky ? `0 0 22px ${accent}aa` : undefined,
+                  ? `linear-gradient(160deg, ${accent}88, #071a14)`
+                  : "linear-gradient(160deg, rgba(255,255,255,0.08), rgba(0,0,0,0.45))",
+              boxShadow: hot || sticky ? `0 0 28px ${accent}99, inset 0 0 20px ${accent}33` : "inset 0 1px 0 #fff2",
             }}
           >
-            {SLOT_SYMBOL_LABEL[sym]}
+            <SlotSymbolArt symbol={sym} tint={SLOT_SYMBOL_TINT[sym]} size="lg" hot={hot} />
             {sticky && (
-              <span className="absolute bottom-0.5 right-1 text-[0.55rem] font-bold text-lime">
-                STICKY
+              <span className="absolute bottom-1 right-1 rounded bg-lime/90 px-1 text-[0.55rem] font-black text-ink">
+                LOCK
               </span>
             )}
+            {hot && <span className="slot-cell-shine absolute inset-0 rounded-xl" />}
           </div>
         );
       })}
@@ -145,15 +185,15 @@ export function SlotsGame({
   game: SlotCatalogItem;
 }) {
   const router = useRouter();
+  const visual = getSlotVisual(game.theme);
   const rows = game.lines === 100 || game.lines === 500 ? 4 : 3;
   const [stake, setStake] = useState<number>(CASINO.defaultStake);
   const [credits, setCredits] = useState(initialCredits);
   const [grid, setGrid] = useState<SlotSymbol[][]>(() => emptyGrid(5, rows));
   const [spinning, setSpinning] = useState(false);
   const [wins, setWins] = useState<LineWin[]>([]);
-  const [waysWon, setWaysWon] = useState(0);
   const [message, setMessage] = useState(
-    `${game.name} · ${lineModeLabel(game.lines)} · 3★ triggers Free Spins`
+    `${game.name} · ${lineModeLabel(game.lines)} · 3★ scatters unlock Free Spins`
   );
   const [lastPayout, setLastPayout] = useState(0);
   const [tier, setTier] = useState<WinTier>("none");
@@ -166,6 +206,7 @@ export function SlotsGame({
   const [autoplay, setAutoplay] = useState(false);
   const [showPaytable, setShowPaytable] = useState(false);
   const [bonusIntro, setBonusIntro] = useState<string | null>(null);
+  const [spinToken, setSpinToken] = useState(0);
   const lock = useRef(false);
   const autoRef = useRef(false);
 
@@ -191,8 +232,8 @@ export function SlotsGame({
     if (lock.current) return;
     lock.current = true;
     setSpinning(true);
+    setSpinToken((t) => t + 1);
     setWins([]);
-    setWaysWon(0);
     setShowTier(false);
     setTier("none");
     setMessage(opts?.free ? `Free spin · ${freeMult}× multiplier` : "Reels spinning…");
@@ -211,11 +252,11 @@ export function SlotsGame({
       if (!res.ok) throw new Error(data.error || "Spin failed");
 
       setGrid(data.grid);
-      await new Promise((r) => setTimeout(r, 2600));
+      // Staggered stop: 5 reels + anticipation on last
+      await new Promise((r) => setTimeout(r, 3200));
 
       setCredits(data.credits);
       setWins(data.lineWins || []);
-      setWaysWon(data.waysWon || 0);
       setLastPayout(data.payout);
       setSticky(data.stickyWilds || []);
       setSpinning(false);
@@ -223,7 +264,7 @@ export function SlotsGame({
       if (data.winTier && data.winTier !== "none") {
         setTier(data.winTier);
         setShowTier(true);
-        setTimeout(() => setShowTier(false), data.winTier === "epic" ? 3200 : 1800);
+        setTimeout(() => setShowTier(false), data.winTier === "epic" ? 3400 : 2000);
       }
 
       if (data.bonusActive && data.bonusId) {
@@ -233,7 +274,7 @@ export function SlotsGame({
         if (data.freeSpinMult) setFreeMult(data.freeSpinMult);
         if (data.bonus?.awarded && !opts?.free) {
           setBonusIntro(`${data.bonus.awarded} FREE SPINS · ${data.freeSpinMult || 2}×`);
-          setTimeout(() => setBonusIntro(null), 2200);
+          setTimeout(() => setBonusIntro(null), 2400);
         }
       } else if (opts?.free) {
         setBonusLeft(data.bonusRemaining || 0);
@@ -265,13 +306,13 @@ export function SlotsGame({
       const stillBonus = !!data.bonusActive && (data.bonusRemaining || 0) > 0;
       lock.current = false;
       if (stillBonus) {
-        setTimeout(() => void runSpin({ free: true }), 850);
+        setTimeout(() => void runSpin({ free: true }), 900);
         return;
       }
       if (autoRef.current) {
         setTimeout(() => {
           if (autoRef.current) void runSpin();
-        }, 650);
+        }, 700);
       }
     } catch (err) {
       setSpinning(false);
@@ -286,55 +327,74 @@ export function SlotsGame({
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.18em]" style={{ color: game.accent }}>
-            {game.theme} · {lineModeLabel(game.lines)} · {game.volatility} vol
+            {visual.label} · {lineModeLabel(game.lines)} · {game.volatility} vol
           </p>
           <h1 className="font-display text-4xl font-extrabold text-ink md:text-5xl">{game.name}</h1>
           <p className="mt-2 max-w-md text-sm text-ink/60">{game.tagline}</p>
         </div>
-        <div className="rounded-xl bg-ink px-4 py-3 text-right text-lime">
+        <div className="rounded-xl bg-ink px-4 py-3 text-right text-lime shadow-[0_0_24px_rgba(200,245,96,0.2)]">
           <p className="text-[0.65rem] uppercase tracking-widest text-lime/70">Betme balance</p>
           <p className="font-display text-2xl font-bold">{credits} cr</p>
         </div>
       </div>
 
       {bonusLeft > 0 && (
-        <div className="rounded-xl border border-lime/40 bg-ink px-4 py-3 text-lime">
+        <div className="slot-bonus-banner rounded-xl border border-lime/50 bg-ink px-4 py-3 text-lime">
           <p className="font-display text-lg font-bold">
-            FREE SPINS · {bonusLeft} left · {freeMult}× · bonus bank {bonusTotal} cr
+            FREE SPINS · {bonusLeft} left · {freeMult}× · bank {bonusTotal} cr
           </p>
-          <p className="text-xs text-lime/70">Sticky wilds stay locked for the feature</p>
+          <p className="text-xs text-lime/70">Sticky wilds locked · feature multiplier active</p>
         </div>
       )}
 
       <div
-        className={`relative overflow-hidden rounded-3xl border border-[var(--line)] p-3 shadow-[0_24px_70px_rgba(7,26,20,0.35)] md:p-5 ${
+        className={`relative overflow-hidden rounded-[1.75rem] border-2 p-2 shadow-[0_28px_80px_rgba(0,0,0,0.45)] md:p-4 ${
           showTier ? "slot-cabinet-win" : ""
         }`}
-        style={{ background: `linear-gradient(165deg, #050f0c 0%, ${game.accent}66 55%, #071a14 100%)` }}
+        style={{
+          borderColor: `${visual.glow}66`,
+          background: `linear-gradient(165deg, ${visual.sky}, #050505)`,
+        }}
       >
-        <div className="mb-3 flex items-center justify-between px-1 text-[0.7rem] font-semibold uppercase tracking-[0.16em] text-lime/70">
+        <SlotThemeBackdrop visual={visual} accent={game.accent} win={showTier} />
+
+        <div className="relative z-10 mb-3 flex items-center justify-between px-2 text-[0.7rem] font-semibold uppercase tracking-[0.16em] text-white/55">
           <span>{lineModeLabel(game.lines)}</span>
+          <span className="text-white/40">{visual.label} floor</span>
           <span>Wilds · Scatters · Free Spins</span>
         </div>
 
-        <div className="flex gap-1.5 md:gap-2">
-          {grid.map((col, c) => (
-            <ReelColumn
-              key={c}
-              symbols={col}
-              spinning={spinning}
-              stopDelayMs={650 + c * 400}
-              highlightRows={highlight.get(c) ?? new Set()}
-              stickyRows={stickyByCol.get(c) ?? new Set()}
-              accent={game.accent}
-            />
-          ))}
+        <div
+          key={spinToken}
+          className="relative z-10 rounded-2xl border border-white/10 bg-black/35 p-2 backdrop-blur-[2px] md:p-3"
+          style={{ boxShadow: `inset 0 0 40px ${visual.glow}22, 0 0 0 1px ${game.accent}33` }}
+        >
+          <div className="flex gap-1.5 md:gap-2" style={{ minHeight: rows === 4 ? "18rem" : "16rem" }}>
+            {grid.map((col, c) => (
+              <ReelColumn
+                key={c}
+                symbols={col}
+                spinning={spinning}
+                stopDelayMs={700 + c * 420 + (c === 4 ? 380 : 0)}
+                highlightRows={highlight.get(c) ?? new Set()}
+                stickyRows={stickyByCol.get(c) ?? new Set()}
+                accent={game.accent}
+                anticipation={spinning && c === 4}
+                colIndex={c}
+              />
+            ))}
+          </div>
         </div>
 
+        <WinFx active={showTier} tier={tier} color={visual.particle} />
+
         {showTier && (
-          <div className="pointer-events-none absolute inset-0 flex items-center justify-center slot-tier-overlay">
-            <div className="rounded-2xl bg-ink/85 px-8 py-5 text-center shadow-2xl">
-              <p className="font-display text-4xl font-extrabold text-lime md:text-5xl">
+          <div className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center slot-tier-overlay">
+            <div className="rounded-2xl border border-lime/40 bg-ink/90 px-8 py-5 text-center shadow-2xl">
+              <p
+                className="font-display text-4xl font-extrabold md:text-5xl"
+                style={{ color: visual.glow, textShadow: `0 0 24px ${visual.glow}` }}
+              >
                 {TIER_COPY[tier]}
               </p>
               <p className="mt-1 font-display text-2xl text-foam">+{lastPayout} cr</p>
@@ -343,8 +403,8 @@ export function SlotsGame({
         )}
 
         {bonusIntro && (
-          <div className="pointer-events-none absolute inset-0 flex items-center justify-center slot-tier-overlay">
-            <div className="rounded-2xl border border-lime bg-ink px-8 py-6 text-center">
+          <div className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center slot-tier-overlay">
+            <div className="rounded-2xl border-2 border-lime bg-ink px-8 py-6 text-center slot-bonus-pop">
               <p className="text-xs font-bold uppercase tracking-[0.2em] text-lime/70">Bonus unlocked</p>
               <p className="mt-2 font-display text-3xl font-extrabold text-lime">{bonusIntro}</p>
             </div>
@@ -360,7 +420,7 @@ export function SlotsGame({
             disabled={spinning || bonusLeft > 0}
             onClick={() => setStake(s)}
             className={`rounded-lg px-3 py-2 text-sm font-semibold transition ${
-              stake === s ? "bg-ink text-lime" : "bg-mist text-ink hover:bg-mist/80"
+              stake === s ? "bg-ink text-lime shadow-[0_0_16px_rgba(200,245,96,0.35)]" : "bg-mist text-ink hover:bg-mist/80"
             }`}
           >
             {s} cr
@@ -373,7 +433,9 @@ export function SlotsGame({
           type="button"
           disabled={spinning || credits < stake || bonusLeft > 0}
           onClick={() => void runSpin()}
-          className="rounded-xl bg-lime px-8 py-3.5 font-display text-lg font-bold text-ink transition hover:bg-lime-deep disabled:cursor-not-allowed disabled:opacity-50"
+          className={`slot-spin-btn rounded-xl bg-lime px-8 py-3.5 font-display text-lg font-bold text-ink transition hover:bg-lime-deep disabled:cursor-not-allowed disabled:opacity-50 ${
+            !spinning && bonusLeft === 0 ? "slot-spin-idle" : ""
+          }`}
         >
           {spinning ? "Spinning…" : `SPIN · ${stake} cr`}
         </button>
@@ -403,18 +465,20 @@ export function SlotsGame({
 
       {showPaytable && (
         <div className="rounded-2xl border border-[var(--line)] bg-white/70 p-4 text-sm text-ink/70">
-          <p className="font-semibold text-ink">Pays (× stake / line share)</p>
-          <div className="mt-2 grid grid-cols-2 gap-2 md:grid-cols-4">
-            {(Object.keys(SLOT_SYMBOL_LABEL) as SlotSymbol[]).map((s) => (
-              <div key={s} className="rounded-lg bg-mist/60 px-2 py-1.5">
-                <span style={{ color: SLOT_SYMBOL_TINT[s] }}>{SLOT_SYMBOL_LABEL[s]}</span>{" "}
-                {s === "scatter" ? "3★ = Free Spins" : "3 / 4 / 5 match"}
+          <p className="font-semibold text-ink">Symbol pays</p>
+          <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-4">
+            {(Object.keys(SLOT_SYMBOL_TINT) as SlotSymbol[]).map((s) => (
+              <div key={s} className="flex items-center gap-2 rounded-xl bg-mist/60 px-2 py-2">
+                <SlotSymbolArt symbol={s} tint={SLOT_SYMBOL_TINT[s]} size="sm" />
+                <span className="text-xs capitalize">
+                  {s === "scatter" ? "3★ Free Spins" : `${s} · 3/4/5`}
+                </span>
               </div>
             ))}
           </div>
           <p className="mt-3 text-xs text-ink/50">
             Free Spins: sticky wilds + {game.volatility === "high" ? "3×" : "2×"} win multiplier.
-            Retrigger with 3★ during the feature. Betme credits only.
+            Retrigger with 3 scatters. Betme credits only.
           </p>
         </div>
       )}
@@ -422,13 +486,16 @@ export function SlotsGame({
       {wins.length > 0 && (
         <ul className="max-h-36 space-y-1 overflow-auto rounded-xl border border-[var(--line)] bg-white/50 p-3 text-xs text-ink/70">
           {wins.slice(0, 14).map((w, i) => (
-            <li key={i}>
-              {w.lineIndex === -2
-                ? `Scatter ×${w.count}`
-                : w.lineIndex < 0
-                  ? `Ways · ${SLOT_SYMBOL_LABEL[w.symbol]} ×${w.count}`
-                  : `Line ${w.lineIndex + 1} · ${SLOT_SYMBOL_LABEL[w.symbol]} ×${w.count}`}{" "}
-              · +{w.payout} cr
+            <li key={i} className="flex items-center gap-2">
+              <SlotSymbolArt symbol={w.symbol} tint={SLOT_SYMBOL_TINT[w.symbol]} size="sm" />
+              <span>
+                {w.lineIndex === -2
+                  ? `Scatter ×${w.count}`
+                  : w.lineIndex < 0
+                    ? `Ways · ${w.symbol} ×${w.count}`
+                    : `Line ${w.lineIndex + 1} · ${w.symbol} ×${w.count}`}{" "}
+                · +{w.payout} cr
+              </span>
             </li>
           ))}
         </ul>
